@@ -37,7 +37,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.text)
+	@Field(type = FieldType.text, analyzer = "swedish")
 	@NotNull
 	private String term;
 
