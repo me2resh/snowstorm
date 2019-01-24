@@ -1,3 +1,15 @@
+## _Experimental Swedish Language Branch_
+
+This is an experimental branch for testing Elasticsearch language capabilities.
+We are hardcoding the Swedish language as a quick way to preview indexing and search behaviour.
+
+This will provide input to the development of proper multi-language support in Snowstorm.
+
+-
+-
+-
+-
+-
 # ❄️ Snowstorm Terminology Server [![Build Status](https://travis-ci.org/IHTSDO/snowstorm.svg?branch=master)](https://travis-ci.org/IHTSDO/snowstorm) [![codecov](https://codecov.io/gh/IHTSDO/snowstorm/branch/master/graph/badge.svg)](https://codecov.io/gh/IHTSDO/snowstorm)
 
 Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with a focus on performance and enterprise scalability.
