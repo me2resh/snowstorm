@@ -114,13 +114,13 @@ public class QueryService {
 			//A no criteria search - return all concepts - might filter by active and definition status
 			List<Long> allMatches = new LongArrayList();
 			NativeSearchQueryBuilder allConceptQuery = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
 					.withFields(Concept.Fields.CONCEPT_ID)
 					.withPageable(LARGE_PAGE);
 			if (activeFilter != null) {
-				allConceptQuery.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, activeFilter.booleanValue()))
-				);
+				allConceptQuery.withQuery(
+						boolQuery().must(termQuery(Concept.Fields.ACTIVE, activeFilter.booleanValue())));
 			}
 			try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(allConceptQuery.build(), Concept.class)) {
 				stream.forEachRemaining(c -> allMatches.add(c.getConceptIdAsLong()));
