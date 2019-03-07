@@ -111,22 +111,8 @@ public class QueryService {
 		Page<Long> conceptIdPage = null;
 		
 		if (!hasLexicalCriteria && !hasLogicalConditions) {
-			//A no criteria search - return all concepts - might filter by active and definition status
-			List<Long> allMatches = new LongArrayList();
-			NativeSearchQueryBuilder allConceptQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
-					.withFields(Concept.Fields.CONCEPT_ID)
-					.withPageable(LARGE_PAGE);
-			if (activeFilter != null) {
-				allConceptQuery.withQuery(
-						boolQuery().must(termQuery(Concept.Fields.ACTIVE, activeFilter.booleanValue())));
-			}
-			try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(allConceptQuery.build(), Concept.class)) {
-				stream.forEachRemaining(c -> allMatches.add(c.getConceptIdAsLong()));
-			}
-			List<Long> allFilteredMatches = filterByDefinitionStatus(allMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria);
-			conceptIdPage = PageCollectionUtil.listToPage(allFilteredMatches, pageRequest, Long.class);
+			//A no criteria search - return all concepts
+			conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
 		} else if (hasLexicalCriteria && !hasLogicalConditions) {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
@@ -190,8 +176,10 @@ public class QueryService {
 						stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdL()));
 					}
 				} else {
-					// Find inactive concepts
-					if (!conceptQuery.hasRelationshipConditions()) {
+					// Find inactive concepts - can't use semantic index here
+					if (conceptQuery.getEcl() != null) {
+						throw new IllegalArgumentException ("Cannot search for inactive concepts using ECL");
+					} else {
 						NativeSearchQueryBuilder inactiveConceptQuery = new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(branchCriteria.getEntityBranchCriteria(Concept.class))
@@ -207,9 +195,7 @@ public class QueryService {
 				}
 			}
 			List<Long> allFilteredLogicalMatchesFinal = filterByDefinitionStatus(allFilteredLogicalMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria);
-
 			timer.checkpoint("filtered logical complete");
-
 			logger.info("{} lexical results, {} logical results", allLexicalMatchesWithOrdering.size(), allFilteredLogicalMatchesFinal.size());
 
 			// Create page of ids which is an intersection of the lexical and logical lists using the lexical ordering
@@ -247,19 +233,33 @@ public class QueryService {
 	}
 
 	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, AbstractPageRequest pageRequest) {
-		Page<Long> conceptIdPage;
-		NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(conceptQuery.getRootBuilder())
-				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID)
-				.withPageable(pageRequest);
-		Page<QueryConcept> pageOfConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
+		List<Long> allMatches = new ArrayList<>();
+		Boolean activeFilter = conceptQuery.getActiveFilter();
+		String definitionStatusFilter = conceptQuery.getDefinitionStatusFilter();
 
-		List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
-		conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements());
-		return conceptIdPage;
+		NativeSearchQueryBuilder allConceptQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE);
+		
+		if (activeFilter != null) {
+			allConceptQuery.withQuery(
+					boolQuery().must(termQuery(Concept.Fields.ACTIVE, activeFilter.booleanValue())));
+		}
+		
+		if (definitionStatusFilter != null) {
+			allConceptQuery.withQuery(
+					boolQuery().must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatusFilter)));
+		
+		}
+		
+		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(allConceptQuery.build(), Concept.class)) {
+			stream.forEachRemaining(c -> allMatches.add(c.getConceptIdAsLong()));
+		}
+		List<Long> pageOfIds = PageCollectionUtil.subList(allMatches, pageRequest, Long.class);
+		SearchAfterHelper.populateSearchAfterToken(pageOfIds, pageRequest, Long.class);
+		return new PageImpl<>(pageOfIds, pageRequest, allMatches.size());
 	}
 
 	private List<Long> findLexicalMatchDescriptionConceptIds(BranchCriteria branchCriteria, String term, Collection<String> languageCodes) {
@@ -506,7 +506,6 @@ public class QueryService {
 	public final class ConceptQueryBuilder {
 
 		private final BoolQueryBuilder rootBuilder;
-		private final BoolQueryBuilder logicalConditionBuilder;
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String definitionStatusFilter;
@@ -518,28 +517,8 @@ public class QueryService {
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
 			rootBuilder = boolQuery();
-			logicalConditionBuilder = boolQuery();
 			rootBuilder.must(termQuery("stated", stated));
-			rootBuilder.must(logicalConditionBuilder);
 			languageCodes = DEFAULT_LANGUAGE_CODES;
-		}
-
-		public ConceptQueryBuilder self(Long conceptId) {
-			logger.info("conceptId = {}", conceptId);
-			logicalConditionBuilder.should(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId));
-			return this;
-		}
-
-		public ConceptQueryBuilder descendant(Long conceptId) {
-			logger.info("ancestors = {}", conceptId);
-			logicalConditionBuilder.should(termQuery("ancestors", conceptId));
-			return this;
-		}
-
-		public ConceptQueryBuilder selfOrDescendant(Long conceptId) {
-			self(conceptId);
-			descendant(conceptId);
-			return this;
 		}
 
 		public ConceptQueryBuilder ecl(String ecl) {
@@ -579,13 +558,9 @@ public class QueryService {
 		}
 
 		private boolean hasLogicalConditions() {
-			return hasRelationshipConditions() ||
+			return (ecl != null && !ecl.isEmpty()) ||
 					(conceptIds != null && !conceptIds.isEmpty()) ||
 					activeFilter != null || definitionStatusFilter != null;
-		}
-
-		private boolean hasRelationshipConditions() {
-			return getEcl() != null || logicalConditionBuilder.hasClauses();
 		}
 
 		private BoolQueryBuilder getRootBuilder() {

@@ -394,4 +394,8 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 				", path='" + getPath() + '\'' +
 				'}';
 	}
+	
+	public String toString(boolean fsn) {
+		return conceptId + " |" + getFsn() + "|";
+	}
 }

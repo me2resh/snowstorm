@@ -97,13 +97,13 @@ public class MRCMService {
 			InclusionType inclusionType = range.getInclusionType();
 			switch (inclusionType) {
 				case SELF:
-					queryBuilder.self(conceptId);
+					queryBuilder.ecl("" + conceptId);
 					break;
 				case DESCENDANT:
-					queryBuilder.descendant(conceptId);
+					queryBuilder.ecl("<" + conceptId);
 					break;
 				case SELF_OR_DESCENDANT:
-					queryBuilder.selfOrDescendant(conceptId);
+					queryBuilder.ecl("<<" +conceptId);
 					break;
 			}
 		}

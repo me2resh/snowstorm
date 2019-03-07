@@ -17,7 +17,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.List;
 
-import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
@@ -59,20 +58,20 @@ public class QueryServiceTest extends AbstractTest {
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" + pizza_2.toString(true)).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" +pizza_2.toString(true)).termPrefix("Cheesy"), path, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
