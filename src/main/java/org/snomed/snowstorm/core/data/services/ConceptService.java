@@ -75,6 +75,9 @@ public class ConceptService extends ComponentService {
 	private BranchService branchService;
 
 	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
 	private DescriptionService descriptionService;
 
 	@Autowired
@@ -360,7 +363,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
-		try (final Commit commit = branchService.openCommit(path)) {
+		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
 			final Concept concept = find(conceptId, DEFAULT_LANGUAGE_CODES, path);
 			if (concept == null) {
 				throw new IllegalArgumentException("Concept " + conceptId + " not found.");
@@ -460,7 +463,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
-		try (final Commit commit = branchService.openCommit(branch.getPath())) {
+		try (final Commit commit = branchService.openCommit(branch.getPath(), branchMetadataHelper.getBranchLockMetadata(String.format("Saving %s concepts.", concepts.size())))) {
 			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit);
 			commit.markSuccessful();
 			return persistedComponents;
