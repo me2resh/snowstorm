@@ -2,10 +2,8 @@ package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
-import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.AbstractPageRequest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,9 +17,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import static io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil.ENCODED_PIPE;
-import static io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil.SLASH;
 
 public class ControllerHelper {
 
@@ -46,10 +41,6 @@ public class ControllerHelper {
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
-	static List<ConceptMiniNestedFsn> nestConceptMiniFsn(Collection<ConceptMini> minis) {
-		return minis.stream().map(ConceptMiniNestedFsn::new).collect(Collectors.toList());
-	}
-
 	static String requiredParam(String value, String paramName) {
 		if (Strings.isNullOrEmpty(value)) {
 			throw new IllegalArgumentException(paramName + " is a required parameter.");
@@ -71,7 +62,7 @@ public class ControllerHelper {
 		return component;
 	}
 	
-	public static AbstractPageRequest getPageRequest(@RequestParam(required = false) Integer offset, @RequestParam(required = false, defaultValue = "50") int limit) {
+	public static AbstractPageRequest getPageRequest(Integer offset, int limit) {
 		if (offset!= null && offset % limit != 0) {
 			throw new IllegalArgumentException("Offset must be a multiplication of the limit param in order to map to Spring pages.");
 		}
@@ -81,7 +72,7 @@ public class ControllerHelper {
 		return PageRequest.of(page, size);
 	}
 
-	public static AbstractPageRequest getPageRequest(@RequestParam(required = false, defaultValue = "50") int limit, @RequestParam(required = false) String searchAfter, String[] sortValues) {
+	public static AbstractPageRequest getPageRequest(int limit, String searchAfter, String[] sortValues) {
 		if (sortValues == null || sortValues.length == 0) {
 			throw new IllegalArgumentException("SearchAfter page request must specify a sort order");
 		}

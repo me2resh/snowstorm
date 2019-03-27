@@ -10,7 +10,7 @@ public class ConceptSearchRequest {
 	private String eclFilter;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
-	private int offset = 0;
+	private Integer offset;
 	private int limit = 50;
 	private String searchAfter;
 
@@ -65,7 +65,7 @@ public class ConceptSearchRequest {
 		this.conceptIds = conceptIds;
 	}
 
-	public int getOffset() {
+	public Integer getOffset() {
 		return offset;
 	}
 
